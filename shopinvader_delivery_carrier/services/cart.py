@@ -4,53 +4,18 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 
-from odoo.addons.component.core import AbstractComponent
+from odoo.addons.component.core import AbstractComponent, Component
 from odoo.exceptions import UserError
 from odoo.tools.translate import _
 import logging
 _logger = logging.getLogger(__name__)
 
 
-class CartService(AbstractComponent):
+class AbstractSaleService(AbstractComponent):
     _inherit = 'shopinvader.abstract.sale.service'
 
-    # Public service
-    def add_carrier(self, **params):
-        cart = self._get()
-        if not cart:
-            raise UserError(_('There is not cart'))
-        else:
-            self._set_carrier(cart, params['carrier']['id'])
-            return self._to_json(cart)
-
-    # Validator
-    def _validator_add_carrier(self):
-        return {
-            'carrier': {
-                'type': 'dict',
-                'schema': {
-                    'id': {
-                        'coerce': int,
-                        'nullable': True,
-                        'required': True,
-                        },
-                    }
-                },
-            }
-
-    def _set_carrier(self, cart, carrier_id):
-        if carrier_id not in [
-                x['id'] for x in self._get_available_carrier(cart)]:
-            raise UserError(
-                _('This delivery method is not available for you order'))
-        cart.write({'carrier_id': carrier_id})
-        cart.delivery_set()
-
-    def _is_item(self, line):
-        return not line.is_delivery
-
     def _convert_shipping(self, cart):
-        res = super(CartService, self)._convert_shipping(cart)
+        res = super(AbstractSaleService, self)._convert_shipping(cart)
         carriers = self._get_available_carrier(cart)
         selected_carrier = {}
         if cart.carrier_id:
@@ -83,6 +48,45 @@ class CartService(AbstractComponent):
     def _get_available_carrier(self, cart):
         return [self._prepare_carrier(carrier)
                 for carrier in cart._get_available_carrier()]
+
+    def _is_item(self, line):
+        return not line.is_delivery
+
+
+class CartService(Component):
+    _inherit = 'shopinvader.cart.service'
+
+    # Public service
+    def add_carrier(self, **params):
+        cart = self._get()
+        if not cart:
+            raise UserError(_('There is not cart'))
+        else:
+            self._set_carrier(cart, params['carrier']['id'])
+            return self._to_json(cart)
+
+    # Validator
+    def _validator_add_carrier(self):
+        return {
+            'carrier': {
+                'type': 'dict',
+                'schema': {
+                    'id': {
+                        'coerce': int,
+                        'nullable': True,
+                        'required': True,
+                        },
+                    }
+                },
+            }
+
+    def _set_carrier(self, cart, carrier_id):
+        if carrier_id not in [
+                x['id'] for x in self._get_available_carrier(cart)]:
+            raise UserError(
+                _('This delivery method is not available for you order'))
+        cart.write({'carrier_id': carrier_id})
+        cart.delivery_set()
 
     def _update_carrier(self):
         cart = self._get()
